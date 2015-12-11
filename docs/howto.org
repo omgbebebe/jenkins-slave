@@ -1,0 +1,46 @@
+* How to
+  To save all tangled file use C-c C-v t
+** Jenkins slaves
+*** Hosts
+    Create a config for ssh
+    #+BEGIN_SRC sh :tangle ./gen-ssh-config.sh :results silent
+    cat <<EOF > ./ssh-config
+    Host dev-js
+      Hostname js.qubell.com
+      User root
+      IdentityFile ~/.ssh/qubell-dev.pem
+
+    Host dev-js2
+      Hostname js2.qubell.com
+      User root
+      IdentityFile ~/.ssh/qubell-dev.pem
+    EOF
+    #+END_SRC
+
+*** List all Jenkins slaves containers on hosts
+      #+BEGIN_SRC sh
+      echo -e "Name\tImage\tPorts"
+      ssh -F ./ssh-config dev-js docker ps --format "{{.Names}}\\\t{{.Image}}\\\t{{.Ports}}" -f "image=jenkins-slave"
+      #+END_SRC
+
+      #+RESULTS:
+      | Name        | Image                                    | Ports                |
+      | slave-small | reg-dev.qubell.com/jenkins-slave:latest  | 0.0.0.0:2224->22/tcp |
+      | slave-extra | reg-dev.qubell.com/jenkins-slave:staging | 0.0.0.0:2223->22/tcp |
+      | slave-2     | reg-dev.qubell.com/jenkins-slave:latest  | 0.0.0.0:2222->22/tcp |
+      | slave-1     | reg-dev.qubell.com/jenkins-slave:latest  | 0.0.0.0:2221->22/tcp |
+
+*** Get interactive shell inside container
+    1. You neet to ssh to the host machine js.qubell.com or js2.qubell.com
+    2. When you are inside exec ```docker exec -it <container name> <command in container>```, eg.
+       #+BEGIN_SRC sh
+       docker exec -it slave-small /bin/bash
+       #+END_SRC
+*** Change container image or configuration
+    If you need to install or remove software or change it configuration somehow else
+    1. Fork https://github.com/qubell/jenkins-slave
+    2. Make changes in the Dockerfile
+    3. Create pull request for master repo
+    When your changes will be merged Jenkins will rebuild container image. Then you need to exec /etc/rc.local script on host machines to redeploy the new image.
+    Warning: you need to be shure that is no active jobs running on containers that going to be redeployed.
+
